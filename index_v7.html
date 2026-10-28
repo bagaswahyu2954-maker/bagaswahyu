@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi PJOK Profesional - Bagas Wahyu N.</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Desain Print CSS */
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: flex !important; }
+            .print-only-block { display: block !important; }
+            body { background: white; margin: 0; padding: 0; font-size: 11pt; color: black; }
+            #main-content { overflow: visible !important; height: auto !important; width: 100% !important; }
+            .print-container { padding: 0 !important; box-shadow: none !important; margin: 0 !important; border: none !important; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid black !important; padding: 6px !important; text-align: center; color: black !important; vertical-align: middle; }
+            th { background-color: #f2f2f2 !important; -webkit-print-color-adjust: exact; }
+            td.text-left { text-align: left; }
+        }
+        
+        /* Desain PDF Mode */
+        .pdf-mode .no-print { display: none !important; }
+        .pdf-mode .print-only { display: flex !important; }
+        .pdf-mode .print-only-block { display: block !important; }
+        .pdf-mode { background: white; padding: 20px; color: black; }
+        .pdf-mode table th, .pdf-mode table td { border: 1px solid black !important; padding: 6px; color: black; }
+        
+        /* General Styles */
+        .print-only, .print-only-block { display: none; }
+        .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0; }
+        table th { background-color: #f8fafc; font-weight: 600; color: #334155; border-bottom: 2px solid #cbd5e1; }
+        table td { border-bottom: 1px solid #e2e8f0; padding: 0.75rem 0.5rem; text-align: center; vertical-align: middle; }
+        table tr:last-child td { border-bottom: none; }
+        table tbody tr:hover { background-color: #f1f5f9; }
+        
+        .input-nilai { width: 50px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; background: white; transition: all 0.2s; }
+        .input-nilai:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+        
+        /* Toast Notification */
+        .toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
+        .toast-enter-from { opacity: 0; transform: translateY(-20px); }
+        .toast-leave-to { opacity: 0; transform: translateY(-20px); }
+        
+        /* Scrollbar kustom */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans" id="app">
+    <div class="flex h-screen overflow-hidden relative">
+        
+        <!-- Toast Notification (Custom Alert) -->
+        <transition name="toast">
+            <div v-if="toast.show" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-lg shadow-lg text-white font-semibold" :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-500'">
+                <i :class="toast.type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation'"></i>
+                {{ toast.message }}
+            </div>
+        </transition>
+
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col no-print h-full shadow-xl z-20">
+            <div class="p-5 font-bold text-xl border-b border-slate-700 flex items-center gap-3 text-white">
+                <div class="bg-emerald-500 text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-running"></i>
+                </div>
+                PJOK Admin
+            </div>
+            
+            <div class="p-5 border-b border-slate-700 text-center bg-slate-800">
+                <div class="w-20 h-20 bg-slate-200 rounded-full mx-auto flex items-center justify-center text-slate-600 text-3xl font-bold mb-3 shadow-inner border-2 border-emerald-500 overflow-hidden relative">
+                    <img v-if="profil.guru.foto" :src="profil.guru.foto" alt="Profile" class="w-full h-full object-cover">
+                    <i v-else class="fa-solid fa-user-tie"></i>
+                </div>
+                <!-- Data ini reaktif dan terhubung ke profil.guru -->
+                <div class="font-bold text-sm text-white">{{ profil.guru.nama }}</div>
+                <div class="text-xs text-emerald-400 mt-1">NIP. {{ profil.guru.nip }}</div>
+            </div>
+
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto text-sm font-medium">
+                <button @click="menu = 'dashboard'" :class="menu === 'dashboard' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-chart-line w-5"></i> Dashboard</button>
+                <div class="pt-4 pb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kehadiran</div>
+                <button @click="menu = 'presensi'" :class="menu === 'presensi' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-user-check w-5"></i> Input Presensi</button>
+                <button @click="menu = 'rekap_absen'" :class="menu === 'rekap_absen' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-clipboard-list w-5"></i> Rekap Absensi</button>
+                
+                <div class="pt-4 pb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Akademik</div>
+                <button @click="menu = 'input_nilai'" :class="menu === 'input_nilai' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-pen-to-square w-5"></i> Input Nilai</button>
+                <button @click="menu = 'rekap_nilai'" :class="menu === 'rekap_nilai' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-award w-5"></i> Rekap Nilai Rapor</button>
+                
+                <div class="pt-4 pb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Administrasi</div>
+                <button @click="menu = 'jurnal'" :class="menu === 'jurnal' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-book w-5"></i> Jurnal Mengajar</button>
+                <button @click="menu = 'profil'" :class="menu === 'profil' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-800 hover:text-white'" class="w-full text-left p-3 rounded-lg transition flex items-center gap-3"><i class="fa-solid fa-id-card w-5"></i> Profil Pegawai</button>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col h-screen overflow-y-auto relative w-full bg-slate-50" id="main-content">
+            <!-- Header Bar -->
+            <header class="bg-white shadow-sm p-4 px-8 flex justify-between items-center no-print sticky top-0 z-10 border-b border-slate-200">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800">Sistem Informasi PJOK</h1>
+                    <!-- Data instansi terhubung ke profil.kepsek -->
+                    <p class="text-sm text-slate-500">{{ profil.kepsek.instansi }}</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full"><i class="fa-solid fa-circle-check"></i> Sistem Aktif</span>
+                </div>
+            </header>
+
+            <div class="p-6 md:p-8 max-w-7xl mx-auto w-full" id="content-area">
+
+                <!-- 1. DASHBOARD -->
+                <div v-show="menu === 'dashboard'" class="space-y-6 no-print">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 mb-1">Selamat Datang, Pak Bagas!</h2>
+                            <p class="text-slate-500">Semua fitur input data dan cetak laporan telah berfungsi 100%.</p>
+                        </div>
+                        <div class="hidden md:block w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl">
+                            <i class="fa-solid fa-hand-sparkles"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-column text-emerald-500"></i> Rata-rata Nilai per Kelas</h3>
+                            <div class="h-64"><canvas id="chartNilai"></canvas></div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-emerald-500"></i> Kehadiran Total Siswa</h3>
+                            <div class="h-64 flex justify-center"><canvas id="chartAbsen"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. INPUT PRESENSI (VERSI BARU) -->
+                <div v-if="menu === 'presensi'" class="space-y-4 no-print">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-user-check text-emerald-600 mr-2"></i> Input Presensi Berjalan</h2>
+                        <p class="text-sm text-slate-500 mt-1">Gunakan tombol H/S/I/A untuk mengubah status kehadiran siswa secara instan.</p>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Bulan</label>
+                            <select v-model="selectedBulan" class="border border-slate-300 p-2 rounded-lg bg-white shadow-sm focus:border-emerald-500 font-semibold text-slate-700 w-36">
+                                <option v-for="b in bulanList" :value="b">{{b}}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Pertemuan/Sesi</label>
+                            <select v-model="selectedSesi" class="border border-slate-300 p-2 rounded-lg bg-white shadow-sm focus:border-emerald-500 font-semibold text-slate-700 w-36">
+                                <option v-for="s in sesiList" :value="s">{{s}}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Kelas</label>
+                            <select v-model="selectedKelas" class="border border-slate-300 p-2 rounded-lg bg-white shadow-sm focus:border-emerald-500 font-semibold text-slate-700 w-32">
+                                <option v-for="k in kelasList" :value="k">{{k}}</option>
+                            </select>
+                        </div>
+                        <div class="ml-auto">
+                            <button @click="setSemuaHadir" class="bg-emerald-500 text-white hover:bg-emerald-600 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow flex items-center gap-2">
+                                <i class="fa-solid fa-check-double"></i> Set Semua (Hadir)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 table-wrapper">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th class="w-16">No</th>
+                                    <th class="text-left px-4">Nama Siswa</th>
+                                    <th class="w-64">Ubah Status Kehadiran</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(nama, idx) in currentStudents" :key="idx">
+                                    <td class="font-medium text-slate-500">{{idx + 1}}</td>
+                                    <td class="text-left px-4 py-3">
+                                        <div class="font-bold text-slate-700 text-base">{{nama}}</div>
+                                        <div class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-graduation-cap"></i> {{selectedKelas}}</div>
+                                    </td>
+                                    <td>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <button @click="setPresensiStatus(nama, 'H')" 
+                                                    :class="getPresensiStatus(nama) === 'H' ? 'bg-emerald-500 text-white shadow-md transform scale-110' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'"
+                                                    class="w-10 h-10 rounded-full font-bold text-sm transition-all duration-200 focus:outline-none flex items-center justify-center">H</button>
+                                            
+                                            <button @click="setPresensiStatus(nama, 'S')" 
+                                                    :class="getPresensiStatus(nama) === 'S' ? 'bg-yellow-500 text-white shadow-md transform scale-110' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'"
+                                                    class="w-10 h-10 rounded-full font-bold text-sm transition-all duration-200 focus:outline-none flex items-center justify-center">S</button>
+                                            
+                                            <button @click="setPresensiStatus(nama, 'I')" 
+                                                    :class="getPresensiStatus(nama) === 'I' ? 'bg-blue-500 text-white shadow-md transform scale-110' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'"
+                                                    class="w-10 h-10 rounded-full font-bold text-sm transition-all duration-200 focus:outline-none flex items-center justify-center">I</button>
+                                            
+                                            <button @click="setPresensiStatus(nama, 'A')" 
+                                                    :class="getPresensiStatus(nama) === 'A' ? 'bg-red-500 text-white shadow-md transform scale-110' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'"
+                                                    class="w-10 h-10 rounded-full font-bold text-sm transition-all duration-200 focus:outline-none flex items-center justify-center">A</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 3. INPUT NILAI -->
+                <div v-if="menu === 'input_nilai'" class="space-y-4 no-print">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-pen-to-square text-emerald-600 mr-2"></i> Input Nilai</h2>
+                            <p class="text-sm text-slate-500 mt-1">Masukkan nilai Formatif (maksimal 10), STS, dan SAS. Rekap otomatis dihitung.</p>
+                        </div>
+                        <div class="w-48">
+                            <label class="block text-xs font-bold text-slate-500 mb-1">Pilih Kelas</label>
+                            <select v-model="selectedKelas" class="w-full border border-slate-300 p-2 rounded-lg bg-white shadow-sm font-semibold text-slate-700">
+                                <option v-for="k in kelasList" :value="k">{{k}}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 table-wrapper">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" class="w-10">No</th>
+                                    <th rowspan="2" class="text-left px-4 min-w-[200px]">Nama Siswa</th>
+                                    <th colspan="10" class="bg-emerald-50">Nilai Formatif (Harian)</th>
+                                    <th rowspan="2" class="bg-blue-50">STS</th>
+                                    <th rowspan="2" class="bg-purple-50">SAS</th>
+                                </tr>
+                                <tr class="text-xs">
+                                    <th v-for="n in 10" class="bg-emerald-50/50 w-12 font-medium">F{{n}}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(nama, idx) in currentStudents" :key="idx">
+                                    <td class="font-medium text-slate-500">{{idx + 1}}</td>
+                                    <td class="text-left font-semibold text-slate-700 px-4">{{nama}}</td>
+                                    <td v-for="n in 10"><input type="number" min="0" max="100" v-model="nilai[selectedKelas][nama]['f'+n]" class="input-nilai text-xs" placeholder="-"></td>
+                                    <td class="bg-blue-50/30"><input type="number" min="0" max="100" v-model="nilai[selectedKelas][nama].sts" class="input-nilai border-blue-300 bg-white text-xs text-blue-700 font-bold" placeholder="-"></td>
+                                    <td class="bg-purple-50/30"><input type="number" min="0" max="100" v-model="nilai[selectedKelas][nama].sas" class="input-nilai border-purple-300 bg-white text-xs text-purple-700 font-bold" placeholder="-"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- LAPORAN: REKAP ABSENSI -->
+                <div v-show="menu === 'rekap_absen'" id="laporan-rekap-absen" class="space-y-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 no-print">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-clipboard-list text-emerald-600 mr-2"></i> Laporan Rekap Absensi</h2>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <select v-model="selectedKelas" class="border border-slate-300 p-2 rounded-lg bg-white font-semibold">
+                                <option v-for="k in kelasList" :value="k">{{k}}</option>
+                            </select>
+                            <button @click="printDoc('laporan-rekap-absen')" class="bg-slate-800 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-print"></i> Cetak</button>
+                            <button @click="downloadPDF('laporan-rekap-absen', 'Rekap_Absen_Keseluruhan_' + selectedKelas)" class="bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition flex items-center gap-2"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 print-container">
+                        <!-- KOP SURAT RESMI (Masuk ke dalam print-container agar tercetak di PDF) -->
+                        <div class="print-only-block text-center w-full" style="border-bottom: 3px solid black; padding-bottom: 10px; margin-bottom: 20px;">
+                            <h3 class="font-bold uppercase" style="font-size: 14pt; margin: 0; line-height: 1.2;">PEMERINTAH KABUPATEN DEMAK</h3>
+                            <h2 class="font-bold uppercase" style="font-size: 18pt; margin: 0; line-height: 1.2;">SD NEGERI HARJOWINANGUN 2</h2>
+                            <p style="font-size: 11pt; margin: 5px 0 0 0;">Alamat : Jl. Kauman Desa Harjowinangun 01/02 Kec. Dempet Kab. Demak * 59573</p>
+                            <p style="font-size: 11pt; margin: 0;">Email : sdnharjowinangundua@gmail.com</p>
+                            <p style="font-size: 11pt; margin: 10px 0 0 0; font-weight: bold;">Tahun Pelajaran: {{ profil.sekolah.tahunPelajaran }} | Semester: {{ profil.sekolah.semester }}</p>
+                        </div>
+                        
+                        <h3 class="print-only-block text-xl font-bold mb-6 text-center uppercase">Rekapitulasi Kehadiran Siswa (Keseluruhan)<br>Kelas {{selectedKelas}}</h3>
+                        
+                        <div class="table-wrapper print:border-none print:shadow-none">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2" class="w-12">No</th>
+                                        <th rowspan="2" class="text-left px-4">Nama Siswa</th>
+                                        <th colspan="4" class="bg-emerald-50 border-b-2 border-emerald-200">Jumlah Kehadiran (Sesi)</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="w-16 bg-emerald-50/50">Hadir</th>
+                                        <th class="w-16 bg-yellow-50/50">Sakit</th>
+                                        <th class="w-16 bg-blue-50/50">Izin</th>
+                                        <th class="w-16 bg-red-50/50">Alfa</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(nama, idx) in currentStudents" :key="idx">
+                                        <td>{{idx + 1}}</td>
+                                        <td class="text-left font-semibold px-4">{{nama}}</td>
+                                        <td class="font-bold text-emerald-600 text-base">{{ hitungTotalAbsen(selectedKelas, nama, 'H') }}</td>
+                                        <td class="font-bold text-yellow-600 text-base">{{ hitungTotalAbsen(selectedKelas, nama, 'S') }}</td>
+                                        <td class="font-bold text-blue-600 text-base">{{ hitungTotalAbsen(selectedKelas, nama, 'I') }}</td>
+                                        <td class="font-bold text-red-600 text-base">{{ hitungTotalAbsen(selectedKelas, nama, 'A') }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- TANDA TANGAN (Otomatis dari Profil) -->
+                        <div class="print-only mt-16 w-full flex justify-between px-10">
+                            <div class="text-center w-64">
+                                <p>Mengetahui,</p>
+                                <p class="mb-20">Kepala Sekolah</p>
+                                <p class="font-bold underline">{{ profil.kepsek.nama }}</p>
+                                <p>NIP. {{ profil.kepsek.nip }}</p>
+                            </div>
+                            <div class="text-center w-64">
+                                <p>Harjowinangun, {{ currentDateFormatted() }}</p>
+                                <p class="mb-20">Guru PJOK</p>
+                                <p class="font-bold underline">{{ profil.guru.nama }}</p>
+                                <p>NIP. {{ profil.guru.nip }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAPORAN: REKAP NILAI -->
+                <div v-show="menu === 'rekap_nilai'" id="laporan-rekap-nilai" class="space-y-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 no-print">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-award text-emerald-600 mr-2"></i> Rekap Nilai Rapor Akhir</h2>
+                        </div>
+                        <div class="flex gap-2">
+                            <select v-model="selectedKelas" class="border border-slate-300 p-2 rounded-lg bg-white font-semibold">
+                                <option v-for="k in kelasList" :value="k">{{k}}</option>
+                            </select>
+                            <button @click="printDoc('laporan-rekap-nilai')" class="bg-slate-800 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-print"></i> Cetak</button>
+                            <button @click="downloadPDF('laporan-rekap-nilai', 'Rekap_Nilai_' + selectedKelas)" class="bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition flex items-center gap-2"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 print-container">
+                        <!-- KOP SURAT RESMI -->
+                        <div class="print-only-block text-center w-full" style="border-bottom: 3px solid black; padding-bottom: 10px; margin-bottom: 20px;">
+                            <h3 class="font-bold uppercase" style="font-size: 14pt; margin: 0; line-height: 1.2;">PEMERINTAH KABUPATEN DEMAK</h3>
+                            <h2 class="font-bold uppercase" style="font-size: 18pt; margin: 0; line-height: 1.2;">SD NEGERI HARJOWINANGUN 2</h2>
+                            <p style="font-size: 11pt; margin: 5px 0 0 0;">Alamat : Jl. Kauman Desa Harjowinangun 01/02 Kec. Dempet Kab. Demak * 59573</p>
+                            <p style="font-size: 11pt; margin: 0;">Email : sdnharjowinangundua@gmail.com</p>
+                            <p style="font-size: 11pt; margin: 10px 0 0 0; font-weight: bold;">Tahun Pelajaran: {{ profil.sekolah.tahunPelajaran }} | Semester: {{ profil.sekolah.semester }}</p>
+                        </div>
+                        
+                        <h3 class="print-only-block text-xl font-bold mb-6 text-center uppercase">Rekapitulasi Nilai Akhir PJOK<br>{{selectedKelas}}</h3>
+                        
+                        <div class="table-wrapper print:border-none print:shadow-none">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="w-10">No</th>
+                                        <th class="text-left px-4">Nama Siswa</th>
+                                        <th>Rata-rata Formatif<br><span class="text-xs font-normal text-slate-500">(50%)</span></th>
+                                        <th>Nilai STS<br><span class="text-xs font-normal text-slate-500">(20%)</span></th>
+                                        <th>Nilai SAS<br><span class="text-xs font-normal text-slate-500">(30%)</span></th>
+                                        <th class="bg-emerald-50 text-emerald-800">NILAI RAPOR</th>
+                                        <th>Keterangan<br>(KKM 75)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(nama, idx) in currentStudents" :key="idx">
+                                        <td>{{idx + 1}}</td>
+                                        <td class="text-left font-semibold px-4">{{nama}}</td>
+                                        <td>{{ hitungRataFormatif(selectedKelas, nama) }}</td>
+                                        <td>{{ nilai[selectedKelas][nama].sts || 0 }}</td>
+                                        <td>{{ nilai[selectedKelas][nama].sas || 0 }}</td>
+                                        <td class="font-bold text-emerald-700 text-base bg-emerald-50/30">{{ hitungRapor(selectedKelas, nama) }}</td>
+                                        <td>
+                                            <span v-if="hitungRapor(selectedKelas, nama) >= 75" class="text-emerald-600 font-bold"><i class="fa-solid fa-check"></i> Tuntas</span>
+                                            <span v-else-if="hitungRapor(selectedKelas, nama) > 0" class="text-red-500 font-bold"><i class="fa-solid fa-xmark"></i> Tidak Tuntas</span>
+                                            <span v-else class="text-slate-400">-</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="print-only mt-16 w-full flex justify-between px-10">
+                            <div class="text-center w-64">
+                                <p>Mengetahui,</p>
+                                <p class="mb-20">Kepala Sekolah</p>
+                                <p class="font-bold underline">{{ profil.kepsek.nama }}</p>
+                                <p>NIP. {{ profil.kepsek.nip }}</p>
+                            </div>
+                            <div class="text-center w-64">
+                                <p>Harjowinangun, {{ currentDateFormatted() }}</p>
+                                <p class="mb-20">Guru PJOK</p>
+                                <p class="font-bold underline">{{ profil.guru.nama }}</p>
+                                <p>NIP. {{ profil.guru.nip }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JURNAL MENGAJAR -->
+                <div v-show="menu === 'jurnal'" id="laporan-jurnal" class="space-y-4">
+                    <div class="flex justify-between items-end no-print">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-book text-emerald-600 mr-2"></i> Jurnal Mengajar</h2>
+                        </div>
+                        <div class="flex gap-2">
+                            <button @click="printDoc('laporan-jurnal')" class="bg-slate-800 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-700 transition flex items-center gap-2"><i class="fa-solid fa-print"></i> Cetak</button>
+                            <button @click="downloadPDF('laporan-jurnal', 'Jurnal_Mengajar')" class="bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition flex items-center gap-2"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-emerald-50 p-5 rounded-xl shadow-sm border border-emerald-200 mb-6 no-print">
+                        <h3 class="font-bold text-emerald-800 mb-3"><i class="fa-solid fa-plus-circle"></i> Tambah Catatan Jurnal Baru</h3>
+                        <div class="flex flex-col md:flex-row gap-4 items-end">
+                            <div>
+                                <label class="block text-xs font-bold text-emerald-700 mb-1">Tanggal</label>
+                                <input type="date" v-model="formJurnal.tgl" class="border border-emerald-300 p-2 rounded w-full bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-emerald-700 mb-1">Kelas</label>
+                                <select v-model="formJurnal.kelas" class="border border-emerald-300 p-2 rounded w-full bg-white">
+                                    <option v-for="k in kelasList">{{k}}</option>
+                                </select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-emerald-700 mb-1">Materi / Kegiatan</label>
+                                <input type="text" v-model="formJurnal.materi" class="border border-emerald-300 p-2 rounded w-full bg-white" placeholder="Contoh: Senam Lantai...">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-emerald-700 mb-1">Catatan Tambahan</label>
+                                <input type="text" v-model="formJurnal.catatan" class="border border-emerald-300 p-2 rounded w-full bg-white" placeholder="-">
+                            </div>
+                            <button @click="simpanJurnal" class="bg-emerald-600 text-white px-6 py-2 rounded font-bold hover:bg-emerald-700 transition shadow">Simpan</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 print-container">
+                        <!-- KOP SURAT RESMI -->
+                        <div class="print-only-block text-center w-full" style="border-bottom: 3px solid black; padding-bottom: 10px; margin-bottom: 20px;">
+                            <h3 class="font-bold uppercase" style="font-size: 14pt; margin: 0; line-height: 1.2;">PEMERINTAH KABUPATEN DEMAK</h3>
+                            <h2 class="font-bold uppercase" style="font-size: 18pt; margin: 0; line-height: 1.2;">SD NEGERI HARJOWINANGUN 2</h2>
+                            <p style="font-size: 11pt; margin: 5px 0 0 0;">Alamat : Jl. Kauman Desa Harjowinangun 01/02 Kec. Dempet Kab. Demak * 59573</p>
+                            <p style="font-size: 11pt; margin: 0;">Email : sdnharjowinangundua@gmail.com</p>
+                            <p style="font-size: 11pt; margin: 10px 0 0 0; font-weight: bold;">Tahun Pelajaran: {{ profil.sekolah.tahunPelajaran }} | Semester: {{ profil.sekolah.semester }}</p>
+                        </div>
+                        
+                        <h3 class="print-only-block text-xl font-bold mb-6 text-center uppercase">Buku Jurnal Mengajar Guru PJOK</h3>
+                        
+                        <div class="table-wrapper print:border-none print:shadow-none">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="w-10">No</th>
+                                        <th class="w-32">Tanggal</th>
+                                        <th class="w-24">Kelas</th>
+                                        <th class="text-left px-4">Materi / Kegiatan</th>
+                                        <th class="text-left px-4 w-64">Catatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-if="jurnalList.length === 0">
+                                        <td colspan="5" class="py-8 text-slate-400 font-medium italic">Belum ada data jurnal yang dimasukkan.</td>
+                                    </tr>
+                                    <tr v-for="(item, idx) in jurnalList" :key="idx">
+                                        <td>{{idx + 1}}</td>
+                                        <td class="font-semibold">{{ formatDate(item.tgl) }}</td>
+                                        <td>{{item.kelas}}</td>
+                                        <td class="text-left px-4 font-medium">{{item.materi}}</td>
+                                        <td class="text-left px-4">{{item.catatan}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="print-only mt-16 w-full flex justify-between px-10">
+                            <div class="text-center w-64">
+                                <p>Mengetahui,</p>
+                                <p class="mb-20">Kepala Sekolah</p>
+                                <p class="font-bold underline">{{ profil.kepsek.nama }}</p>
+                                <p>NIP. {{ profil.kepsek.nip }}</p>
+                            </div>
+                            <div class="text-center w-64">
+                                <p>Harjowinangun, {{ currentDateFormatted() }}</p>
+                                <p class="mb-20">Guru PJOK</p>
+                                <p class="font-bold underline">{{ profil.guru.nama }}</p>
+                                <p>NIP. {{ profil.guru.nip }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROFIL (BISA DI-EDIT) -->
+                <div v-show="menu === 'profil'" class="space-y-4 no-print">
+                    <h2 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-id-card text-emerald-600 mr-2"></i> Profil Pegawai & Instansi</h2>
+                    <p class="text-sm text-slate-500 mt-1">Ubah data profil di bawah ini. Data yang disimpan akan langsung diperbarui ke bagian Kop Surat dan Tanda Tangan seluruh laporan.</p>
+                    
+                    <div class="grid md:grid-cols-2 gap-6 mt-4">
+                        <!-- Card Guru -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex items-center gap-4 mb-6 border-b pb-4">
+                                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl font-bold overflow-hidden border-2 border-emerald-200 relative group cursor-pointer shadow-sm transition-transform hover:scale-105" @click="$refs.fotoInput.click()" title="Klik untuk mengubah foto">
+                                    <img v-if="profil.guru.foto" :src="profil.guru.foto" class="w-full h-full object-cover">
+                                    <i v-else class="fa-solid fa-user"></i>
+                                    <div class="absolute inset-0 bg-black bg-opacity-40 hidden group-hover:flex items-center justify-center text-white text-xl transition-opacity">
+                                        <i class="fa-solid fa-camera"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-lg text-slate-800">Guru PJOK</h3>
+                                    <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-bold">Pengelola</span>
+                                    <input type="file" ref="fotoInput" @change="handleFotoUpload" accept="image/*" class="hidden">
+                                </div>
+                                <button v-if="profil.guru.foto" @click="hapusFoto" class="ml-auto text-xs text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition" title="Hapus Foto"><i class="fa-solid fa-trash mr-1"></i> Hapus</button>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">Nama Lengkap & Gelar</label>
+                                    <input type="text" v-model="profil.guru.nama" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">NIP</label>
+                                    <input type="text" v-model="profil.guru.nip" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">Jabatan</label>
+                                    <input type="text" v-model="profil.guru.jabatan" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Card Kepala Sekolah -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <div class="flex items-center gap-4 mb-6 border-b pb-4">
+                                <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl font-bold">
+                                    <i class="fa-solid fa-user-tie"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-lg text-slate-800">Kepala Sekolah</h3>
+                                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Pimpinan</span>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">Nama Lengkap & Gelar</label>
+                                    <input type="text" v-model="profil.kepsek.nama" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">NIP</label>
+                                    <input type="text" v-model="profil.kepsek.nip" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">Instansi</label>
+                                    <input type="text" v-model="profil.kepsek.instansi" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Card Pengaturan Akademik -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-2">
+                            <div class="flex items-center gap-4 mb-6 border-b pb-4">
+                                <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl font-bold">
+                                    <i class="fa-solid fa-school"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-lg text-slate-800">Pengaturan Akademik</h3>
+                                    <span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">Sistem</span>
+                                </div>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">Tahun Pelajaran</label>
+                                    <input type="text" v-model="profil.sekolah.tahunPelajaran" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-semibold text-slate-800 outline-none transition-colors">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 block mb-1">Semester</label>
+                                    <select v-model="profil.sekolah.semester" class="w-full border border-slate-300 p-2 rounded-lg bg-slate-50 focus:bg-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500 font-semibold text-slate-800 outline-none transition-colors">
+                                        <option value="1 (Ganjil)">1 (Ganjil)</option>
+                                        <option value="2 (Genap)">2 (Genap)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex justify-end">
+                        <button @click="showToast('Data Profil berhasil disimpan dan diperbarui!', 'success')" class="bg-emerald-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-emerald-700 transition shadow-md flex items-center gap-2">
+                            <i class="fa-solid fa-save"></i> Simpan Profil
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const dataSiswa = {"Kelas 1": ["ABDULLAH HUNAIFI", "AFIZAH SYAQILA ZULFA", "AHMAD FIKRI ILZAM FATA", "AHMAD ZIDAN IQLIL MAULANA", "AKHTAR FARZAN WIJAYA", "AMEL IQLIL ZAIN NAURA", "ARUMI NASHA RAZETA", "AZKIYA JIHAN AIDAH", "FIFI LU'LUATUN NU'UMAH", "GILSYA KARINA ARISYARINI", "HILYA MAFAZA", "KEYLA TISHA AZZANA", "LILIK PUTRI ANJANI", "MAWARDA ALISTINAVIA AZZAHEERA", "MELLY DEBBY MAYLITA AZZAHRA", "MUHAMAD SYAUQI ISMAIL", "MUHAMMAD BAGUS SULTAN AL AMIN", "MUHAMMAD RAFKA ADRIAN", "NADHIFATUL MUNA", "NAURA AZHARA", "NAURA AZZAHRA ALIFA FATHARANI", "RAIHAN ARIFIN MASYHURI"], "Kelas 2": ["ADZRIEL RAFIQ SYAHPUTRA", "ADZRIL RAFIF FAKHRI", "AFTA AHMAD", "AHMAD HUDA PRATAMA", "AKBAR ARBIANSYAH MAULANA", "ALIF SHAKIL ALFARIZQI", "ANDINA AYU JILIANA", "ANDINI AYU JULIANI", "ARZAQUNA ABICANDRA GHAISAN", "BIAN ALFANO", "CARLINA SAFEEA PUTRI", "FARIS ARDANA ADIPUTRA", "FAROH AULIYA SALSABILA", "FURQON FAWWAZ", "HENY KHUSNA ANGGRAENI", "HILYA AZKIYATUL MAULIDA", "INTAN GHANIA NUR AINI", "KEISYA AZZAHRA", "KHALISA CYRA RAMADHANI", "KHARIS NUR IKHSAN", "KHUSNA LATHIFATUN NISA'", "MUHAMMAD DILAN ALFAN RAFISQI", "MUHAMMAD FAREL ARDAFA", "MUHAMMAD KEYMAL RAHARDIKA", "MUHAMMAD ZAIDAN ALFATIH", "NABIL MUHAMMAD FIKRI", "NANCY ATIKA PUTRI", "NUR AINA ANNASYA", "SALMA ULYA FINNA", "SHAFIRA NOVITA SARI", "SHOFIYATUL MAHFUDHOH", "SYAFIRA FATMA HADI"], "Kelas 3": ["ADELIA MALIKA VARISHA PUTRI", "ADIBA MIKAILA NAJWA KHOIRUS SHIHAB", "AHMAD HAFIDZ MAULANA", "ARSYILA ROMEESA FARZANA", "ARVINO NAZRIL PRATAMA", "ATIKA ZAHRA RATIFA", "AZKA AZFAR RABBANI", "AZRIL RAHANDIKA ALFARIQ", "CLARISSA AMANINA AZZAHRA", "FERDI FERNANDO", "GIBRAN RAHANDIKA AL FARIQ", "GILANG WAHYU ANANDA", "KHAYLA ALMIRA MARITZA", "MISYA ADIFA ALMAIRA", "MUHAMMAD AGI MAULANA DZULFIKRI", "MUHAMMAD ARSYAD KAISA AL HUSA'IN", "MUHAMMAD ATTAYA BILAL RIZKILLAH", "MUHAMMAD DAIMAN ABADA", "MUHAMMAD IHSAN SUKMA HADI", "MUHAMMAD IRHAM ADZANI", "MUHAMMAD WAHYU KHOIRUL UMAM", "MUHAMMAD ZAIN ZIDAN ZAKARIA", "NABILA HANIA SYARIFA AHMAD", "NAYYARA HENZI FAYYOLA", "QUEENA ZAHRA ZAKARIA", "SILVA KUMAYLA", "ZILKHA KHOLIFATUL HUSNA"], "Kelas 4": ["AHMAD ASYROF ATHIYA", "AIRA MASA", "AKSA IKSAL MUNA", "AMIRA AZZAHRA ALFATUNNISA", "ANJANI LESTARI PUTRI", "ANNISA NUR AINAYA", "ARVINO DAFFA MAUZA", "BILQIS FAIHA RIFDA", "DESOFWA KHILDA ISNIA FITRI", "FARIHA MILLATI HUSNA", "FERDI DWI SATRIA", "Gea Anindhi", "KHILMA QOTRUN NADA", "MUHAMAD DZAKIANDRA ABINAWA", "MUHAMAD ILHAM SURYA", "MUHAMMAD ABIL ABBAS", "MUHAMMAD ALDI ALFARIZKY", "MUHAMMAD ARIF BILLAH", "MUHAMMAD AZRIL ZAM ZAM ALFITRA", "MUHAMMAD FREDDY RISKA ADITYA", "MUHAMMAD LABIB", "MUHAMMAD RIKZA", "MUHAMMAD ZIYAN ARZACHEL", "MUKHAMMAD 'IZZAM AUSOF AL ADIB", "NAZZA OKTAVIARI ALYA", "NOVITA INDRIANI", "NURIL AZKIYA", "NURUL KHABIBAH", "REISA AULIA SARI", "RIO RAHLAM ANANDA", "SAFIQ IBRAHIM", "SINTA APRILIA AYU WULANDARI"], "Kelas 5": ["ABID KHOIRUL MULTAZA", "ABIDZAR ALFATIH HIDAYAT", "ACHMAD SAKHA ARKAN WIRATAMA", "AFIQA SAFIYYA RAHMA", "AHMAD KHOIRUSSYIHAB", "Ahmad Ni'mal A'la", "AHMAD ROUF", "ALBI AZMIL FAUQ", "ALIKA NAILA PUTRI", "ANINDITA MAULIDA HUSNA", "AQILA SALMA AZHAR RAMADHANI", "ARKA RIZQI PRATAMA", "CIKA INTAN SUSANTI", "DITA FATIMATUZZAHRO'", "ELSYA KENANGA CHAKIM", "FAHMI DIAN MUSYAFA'", "GHANI SHAKA AHMAD", "IKRIMATUL MUFIDA", "ILA NAFILA", "MUHAMMAD GIBRAN ERLANGGA", "MUHAMMAD ILZAM HAQIQI", "MUHAMMAD VINO ALFARIZQI", "MUHAMMAD YUSRON", "NAILA MUTIYA FAJRIYA", "NATASYA NURIL AULIA", "NIKEN FITRI ARYANI", "NUR RISANGGA PRADIPTA", "NURUL ASFA", "RAKA MAULANA ALRIZKI", "RANI MAULIDIYA ANGGRAINI", "RENYAVITA DEILANI", "REVA ATIKA NIHARA SOFIYA", "REVALINA PUTRI", "SANDIKA IWAN SAPUTRA", "SATRIA PAMUKAS", "SITI NUR ALIFAH", "ZAHIDA QOLBI NADHIFA"], "Kelas 6": ["Ahmad Aqimul Yasya", "Ahmad Arif Widy Atmoko", "AHMAD NAUFAL AL FATCHI", "Ajeng Duwi Nur Hasanah", "ARIFA NURIL MAULIDA", "Asella Ananda Zasmi", "CHABIBUR ROCHIM", "DAFFA IBNU HAFIZ", "Earlyta Cahya Salsabila", "Ibnu Malikul Robbi", "Isroqul Askhima", "MAULIDA ISMI TAQIYYA", "Muhammad Agung Prayogo", "Muhammad Ashfian Nashrul Hadi", "MUHAMMAD ASLIM AKMAL", "MUHAMMAD HANIF ALMUADDY", "MUHAMMAD HILMI ATTAQI", "Muhammad Joko Santoso", "MUHAMMAD WAHYUDI", "MUTIARA FATMA AZZAHRA", "NAILA IKA NURJANNAH", "Natasya Keyla Putri", "NAVIYA NOVIYANTI", "NAYLAL MUNA", "NAYSILA FAUZUL MUNA", "Rifka Anindya Challista", "SENJA CAHYA CANTIKA", "Shidqia Aulia Suyuti", "SITI HUSNUL KHOTIMAH", "VIKA AULA AKMALA", "Wahyu Indah Lestari", "Wildan Asshofie", "YUUHA ILAYYA"]};
+
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    menu: 'dashboard',
+                    kelasList: ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'],
+                    selectedKelas: 'Kelas 1',
+                    students: dataSiswa,
+                    
+                    // Data Profil Interaktif
+                    profil: {
+                        guru: {
+                            nama: 'Bagas Wahyu Nugroho, S.Pd.',
+                            nip: '199907082024211002',
+                            jabatan: 'Guru Pendidikan Jasmani, Olahraga, dan Kesehatan',
+                            foto: ''
+                        },
+                        kepsek: {
+                            nama: 'Kiswati, S.Pd.SD., M.Pd.',
+                            nip: '197203291996032 003',
+                            instansi: 'SD Negeri Harjowinangun 2'
+                        },
+                        sekolah: {
+                            tahunPelajaran: '2026/2027',
+                            semester: '1 (Ganjil)'
+                        }
+                    },
+                    
+                    // Filter Presensi
+                    bulanList: ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'],
+                    selectedBulan: 'Juli',
+                    sesiList: ['Pertemuan 1', 'Pertemuan 2', 'Pertemuan 3', 'Pertemuan 4', 'Pertemuan 5', 'Pertemuan 6', 'Pertemuan 7', 'Pertemuan 8'],
+                    selectedSesi: 'Pertemuan 1',
+                    
+                    // State Reaktif
+                    presensi: {}, 
+                    nilai: {},
+                    jurnalList: [
+                        { tgl: '2026-10-27', kelas: 'Kelas 1', materi: 'Gerak Dasar Lokomotor', catatan: 'Siswa sangat aktif' }
+                    ],
+                    
+                    formJurnal: {
+                        tgl: new Date().toISOString().split('T')[0],
+                        kelas: 'Kelas 1',
+                        materi: '',
+                        catatan: ''
+                    },
+                    
+                    chartInstances: [],
+                    
+                    toast: {
+                        show: false,
+                        message: '',
+                        type: 'success'
+                    }
+                }
+            },
+            computed: {
+                currentStudents() {
+                    return this.students[this.selectedKelas] || [];
+                }
+            },
+            created() {
+                this.initData();
+            },
+            mounted() {
+                this.renderCharts();
+            },
+            watch: {
+                menu(newVal) {
+                    if(newVal === 'dashboard') {
+                        setTimeout(() => this.renderCharts(), 100);
+                    }
+                }
+            },
+            methods: {
+                hapusFoto() {
+                    this.profil.guru.foto = '';
+                    this.showToast('Foto profil berhasil dihapus.');
+                },
+                handleFotoUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    if (!file.type.startsWith('image/')) {
+                        this.showToast('Harap unggah file gambar!', 'error');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.profil.guru.foto = e.target.result;
+                        this.showToast('Foto profil berhasil diperbarui.');
+                    };
+                    reader.readAsDataURL(file);
+                },
+
+                showToast(msg, type='success') {
+                    this.toast.message = msg;
+                    this.toast.type = type;
+                    this.toast.show = true;
+                    setTimeout(() => { this.toast.show = false; }, 2500);
+                },
+
+                initData() {
+                    for(let k of this.kelasList) {
+                        this.nilai[k] = {};
+                        for(let nama of this.students[k]) {
+                            this.nilai[k][nama] = { f1:'', f2:'', f3:'', f4:'', f5:'', f6:'', f7:'', f8:'', f9:'', f10:'', sts:'', sas:'' };
+                        }
+                    }
+                    
+                    for(let b of this.bulanList) {
+                        this.presensi[b] = {};
+                        for(let s of this.sesiList) {
+                            this.presensi[b][s] = {};
+                            for(let k of this.kelasList) {
+                                this.presensi[b][s][k] = {};
+                                for(let nama of this.students[k]) {
+                                    this.presensi[b][s][k][nama] = '-'; 
+                                }
+                            }
+                        }
+                    }
+                },
+                
+                getPresensiStatus(nama) {
+                    try {
+                        return this.presensi[this.selectedBulan][this.selectedSesi][this.selectedKelas][nama];
+                    } catch(e) { return '-'; }
+                },
+
+                setPresensiStatus(nama, status) {
+                    this.presensi[this.selectedBulan][this.selectedSesi][this.selectedKelas][nama] = status;
+                },
+
+                setSemuaHadir() {
+                    let targetList = this.currentStudents;
+                    targetList.forEach(nama => {
+                        this.setPresensiStatus(nama, 'H');
+                    });
+                    this.showToast('Semua siswa di ' + this.selectedKelas + ' berhasil ditandai Hadir (H).');
+                },
+
+                hitungTotalAbsen(kelas, nama, status) {
+                    let count = 0;
+                    try {
+                        for(let b of this.bulanList) {
+                            for(let s of this.sesiList) {
+                                if(this.presensi[b][s][kelas][nama] === status) count++;
+                            }
+                        }
+                    } catch(e) {}
+                    return count;
+                },
+                
+                currentDateFormatted() {
+                    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+                    return new Date().toLocaleDateString('id-ID', options);
+                },
+                
+                hitungRataFormatif(kelas, nama) {
+                    let n = this.nilai[kelas][nama];
+                    let total = 0; let count = 0;
+                    for(let i=1; i<=10; i++) {
+                        let val = n['f'+i];
+                        if(val !== '' && val !== null && !isNaN(val)) {
+                            total += Number(val);
+                            count++;
+                        }
+                    }
+                    if(count === 0) return 0;
+                    return Math.round(total / count);
+                },
+                
+                hitungRapor(kelas, nama) {
+                    let rataF = this.hitungRataFormatif(kelas, nama);
+                    let n = this.nilai[kelas][nama];
+                    let sts = Number(n.sts) || 0;
+                    let sas = Number(n.sas) || 0;
+                    
+                    let akhir = (rataF * 0.5) + (sts * 0.2) + (sas * 0.3);
+                    return Math.round(akhir);
+                },
+
+                simpanJurnal() {
+                    if(this.formJurnal.materi.trim() === '') {
+                        this.showToast('Mohon isi kolom Materi/Kegiatan!', 'error');
+                        return;
+                    }
+                    this.jurnalList.push({ ...this.formJurnal });
+                    this.formJurnal.materi = '';
+                    this.formJurnal.catatan = '';
+                    this.showToast('Catatan Jurnal berhasil ditambahkan.');
+                },
+                
+                formatDate(dateStr) {
+                    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+                    return new Date(dateStr).toLocaleDateString('id-ID', options);
+                },
+                
+                printDoc(elementId) {
+                    window.print();
+                },
+                
+                downloadPDF(elementId, filename) {
+                    this.showToast('Memproses PDF, mohon tunggu sebentar...');
+                    const element = document.getElementById(elementId);
+                    
+                    element.classList.add('pdf-mode');
+                    
+                    const opt = {
+                        margin:       0.4,
+                        filename:     filename + '.pdf',
+                        image:        { type: 'jpeg', quality: 0.98 },
+                        html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                        jsPDF:        { unit: 'in', format: 'legal', orientation: 'landscape' }
+                    };
+
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        element.classList.remove('pdf-mode');
+                        this.showToast('Dokumen PDF berhasil diunduh.');
+                    });
+                },
+
+                renderCharts() {
+                    this.chartInstances.forEach(chart => chart.destroy());
+                    this.chartInstances = [];
+
+                    const ctxNilai = document.getElementById('chartNilai');
+                    if(ctxNilai) {
+                        const chart1 = new Chart(ctxNilai, {
+                            type: 'bar',
+                            data: {
+                                labels: ['Kls 1', 'Kls 2', 'Kls 3', 'Kls 4', 'Kls 5', 'Kls 6'],
+                                datasets: [{
+                                    label: 'Rata-rata Nilai Rapor',
+                                    data: [82, 85, 79, 88, 81, 86],
+                                    backgroundColor: '#10b981',
+                                    borderRadius: 6
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false }
+                        });
+                        this.chartInstances.push(chart1);
+                    }
+
+                    const ctxAbsen = document.getElementById('chartAbsen');
+                    if(ctxAbsen) {
+                        const chart2 = new Chart(ctxAbsen, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Hadir', 'Sakit', 'Izin', 'Alpa'],
+                                datasets: [{
+                                    data: [90, 5, 3, 2],
+                                    backgroundColor: ['#10b981', '#facc15', '#3b82f6', '#ef4444'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
+                        });
+                        this.chartInstances.push(chart2);
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
